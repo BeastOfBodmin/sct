@@ -35,22 +35,24 @@ IMPLICIT NONE
 
 ! Updated to Fortran 90 by David W. Wright (November 2013)
 
+! https://annefou.github.io/Fortran/arrays/arrays.html
+INTEGER, PARAMETER :: QRARRMAX = 400, XMAX = 6000, IX = 102
 CHARACTER * 80 MODEL, EXPDATA, SCATTCV, OUTPUT
 CHARACTER * 60 TITLE
 INTEGER TODAY(3), NOW(8)
 DOUBLE PRECISION XX(3),RSQ(3)
-DOUBLE PRECISION X(6000,3)
-DOUBLE PRECISION Q(102),SCATT(102),SCATTL(102)
-DOUBLE PRECISION ARE(102),SINQR(400)
-DOUBLE PRECISION RTERM(400)
+DOUBLE PRECISION X(XMAX,3)
+DOUBLE PRECISION Q(IX),SCATT(IX),SCATTL(IX)
+DOUBLE PRECISION ARE(IX),SINQR(QRARRMAX)
+DOUBLE PRECISION RTERM(QRARRMAX)
 
-DOUBLE PRECISION FFAC(102),SUMM(102)
+DOUBLE PRECISION FFAC(IX),SUMM(IX)
 DOUBLE PRECISION QDIG, DIG, RR, QMAX
 DOUBLE PRECISION WAS, WAV, ALF, QR, DELTA, SQ
 DOUBLE PRECISION AT, ATS, DENOM, R, W, FAC, QXX, GXX, QXYZ
 DOUBLE PRECISION AXX, BXX, CXX, DXX, EXX, FXX
-INTEGER IDRSQ(400),I1,LSCAT(102)
-INTEGER LINE(102), IS, NAMS, NG, NSC, IX, IY, NP, LP, NLOOP
+INTEGER IDRSQ(QRARRMAX),I1,LSCAT(IX)
+INTEGER LINE(IX), IS, NAMS, NG, NSC, IX, IY, NP, LP, NLOOP
 INTEGER IDEFAU, IWHI, IGUI, ISME, NPT, NXGUI, N
 INTEGER NATOM, ISTAR, J, M, KOUNT, NITWIT, NITTT, NNN, ILOOP
 INTEGER IMAXIM, IDT, ICHECK, NN, IERR
@@ -63,22 +65,35 @@ COMMON /F/QMAX,R(7),W(7),IS(10),NAMS(20),NG,NSC
 ! Set parameters
 !
 
-DO IX = 1,102
-    Q(IX) = 0.0
-    SCATT(IX) = 0.0
-    SCATTL(IX) = 0.0
-    ARE(IX) = 0.0
-    FFAC(IX) = 0.0
-    SUMM(IX) = 0.0
-    LSCAT(IX) = 0
-    LINE(IX) = 0
-END DO
+! DO IX = 1,102
+!    Q(IX) = 0.0
+!    SCATT(IX) = 0.0
+!    SCATTL(IX) = 0.0
+!    ARE(IX) = 0.0
+!    FFAC(IX) = 0.0
+!    SUMM(IX) = 0.0
+!    LSCAT(IX) = 0
+!    LINE(IX) = 0
+! END DO
 
-DO IY = 1,400
-    SINQR(IY) = 0.0
-    RTERM(IY) = 0.0
-    IDRSQ(IY) = 0
-END DO
+! DO IY = 1,QRARRMAX
+!    SINQR(IY) = 0.0
+!    RTERM(IY) = 0.0
+!    IDRSQ(IY) = 0
+! END DO
+
+! Try to avoid using loops to initialise arrays.
+SINQR(:) = 0.0
+RTERM(:) = 0.0
+IDRSQ(:) = 0
+Q(:) = 0.0
+SCATT(:) = 0.0
+SCATTL(:) = 0.0
+ARE(:) = 0.0
+FFAC(:) = 0.0
+SUMM(:) = 0.0
+LSCAT(:) = 0
+LINE(:) = 0
 
 NP=100
 LP=1
@@ -186,7 +201,7 @@ DO
     END IF
 
     NATOM = NATOM + 1
-    IF (NATOM .EQ. 6000) THEN
+    IF (NATOM .EQ. XMAX) THEN
         WRITE(*,*) "NUMBER OF SPHERES TOO GREAT"
         STOP
     END IF
@@ -203,7 +218,7 @@ WRITE(2,*) "COORDINATE READ-IN COMPLETED O.K."
 ! Calculate form factor for spherical subunits
 !
 
-DO M=1, 100
+DO M=1, NP
 
     QR = Q(M) * RR
     FAC = (3.0*((DSIN(QR)) - (QR*DCOS(QR))))/ (QR**3)
@@ -222,7 +237,7 @@ END DO
 
 ! Calculate lookup table for R
 
-DO N = 1, 400
+DO N = 1, QRARRMAX
     RTERM (N) = DBLE(N) * DIG
 END DO
 
@@ -260,7 +275,7 @@ DO N = 1, NITWIT
 
         ILOOP = IFIX(REAL(SQ/DIG) + 0.5)
 
-        IF (ILOOP .GT. 400) THEN
+        IF (ILOOP .GT. QRARRMAX) THEN
             WRITE(2,"(A,F15.2)") " R VECTOR LOST - VALUE IS ", SQ
         ELSE
             IDRSQ(ILOOP) = IDRSQ(ILOOP) + 1
@@ -274,7 +289,7 @@ END DO
 
 I1=0
 IMAXIM=0
-DO N = 1, 400
+DO N = 1, QRARRMAX
     I1 = I1 + IDRSQ(N)
     IF(IDRSQ(N) .GT. 0) IMAXIM = N
 END DO
@@ -283,7 +298,7 @@ END DO
 ! Calculate the scattering function for a giveb Q sum product with R
 ! and WT(?) it with scattering factors
 
-DO IDT = 1, 100
+DO IDT = 1, NP
     SCATT(IDT) = 0.0
 END DO
 
@@ -292,7 +307,7 @@ ATS = AT**2
 ATS = 1.0/ATS
 
 
-DO M = 1,100
+DO M = 1,NP
     SUMM(M) = 0.0
     DO N = 1, IMAXIM
         QR = Q(M) * RTERM(N)
@@ -302,7 +317,7 @@ DO M = 1,100
 
 END DO
 
-DO M=1,100
+DO M=1,NP
     SCATT(M) = FFAC(M) * ATS * (AT + 2.0 * SUMM(M))*1000.0
 END DO
 
@@ -315,7 +330,7 @@ IF (ISME .EQ. 1) CALL SMEAR(SCATT,QDIG,LINE,SCATTL,Q,WAS,WAV,ALF )
 
 DENOM = SCATT(1)
 
-DO M = 1, 100
+DO M = 1, NP
     IF (SCATT(M) .LE. 0.0) THEN
         WRITE(2,"(A,I5,3X,4F10.2,F10.5)") " NEGATIVE/ZERO VALUE", M, SCATT(M), SUMM(M), FFAC(M), AT, ATS
         SCATT(M)=0.0
@@ -368,7 +383,7 @@ END DO
 
 ! Output of Q and intensities
 
-DO NN=1, 100
+DO NN=1, NP
     WRITE(4,"(F9.6,1X,E20.14)") Q(NN), SCATT(NN)
 END DO
 
@@ -401,7 +416,7 @@ DO IX=1,301
     F(IX) = 0.0
 END DO
 
-NQ = 100
+NQ = NP
 NQT = 201
 D = 179.0
 ONE = 1.0
@@ -432,7 +447,7 @@ QQ(151) = 0.0
 SIG(151) = 2.0 * SIG(152) - SIG(153)
 
 ! Apply smearing in G to theoretical F to give smeared SUM
-DO IQ=1,100
+DO IQ=1,NP
     F(151 + IQ) = SCATT(IQ)
     F(151 - IQ) = SCATT(IQ)
 END DO
@@ -443,8 +458,8 @@ F(151)=1000.0
 ! Padding of F beyound the calculated scattering curve (arbitrary)
 
 DO IQ=101,150
-    F(151+IQ)=SCATT(100)
-    F(151-IQ)=SCATT(100)
+    F(151+IQ)=SCATT(NP)
+    F(151-IQ)=SCATT(NP)
 END DO
 
 ! Convolution of G and F
@@ -479,7 +494,7 @@ WRITE(2,"(A)") " TABULAR OUTPUT IS Q ANGSTROM-1 "
 WRITE(2,"(A)") "      )DEBYE CURVE  "
 WRITE(2,"(A)") "      )LOG DEBYE CURVE X 1000"
 
-DO M=1,100
+DO M=1,NP
     SCATTL(M)=DLOG10(SCATT(M))
     LINE(M)=IFIX(REAL(SCATTL(M))*1000.0)
 END DO
